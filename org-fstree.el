@@ -53,7 +53,6 @@
 ;;
 ;;     - :exclude-regexp-fullpath <list of regexp strings>, same as :exclude-regexp-name but matches absolute path to file/directory
 ;;     - :relative-links t , generates relative instead of absolute links
-;;     - :show-only-matches t , only files that are being linked to show up
 ;;
 ;; Limitations and warnings:
 ;;
@@ -69,7 +68,6 @@
 (require 'org)
 
 (defun org-fstree-generate (dir level options)
-;;  (message "org-fstree-generate") ;; DEBUG
   (if (file-directory-p dir)
      (let (
 	   (non-recursive (plist-get options :non-recursive))
@@ -104,9 +102,7 @@
 		(goto-char (point-min))
 		(setq curPos (point))
 		(while (re-search-forward org-bracket-link-regexp nil t)
-		  (let ((filenameInLink (match-string 1)))
-		  (cond ( (org-fstree-get-parameters-if-inside-fstree-block) (re-search-forward "#\\+END_FSTREE" nil t) )
-			( (string= fullFileName (expand-file-name (replace-regexp-in-string "^file:" "" filenameInLink ) ":" ) )
+		  (cond ( (string= fullFileName (expand-file-name (car (split-string (replace-regexp-in-string "^file:" "" (match-string 1) ) ":" ) ) ) )
 			  (let ((p (point)))
 			    (cond ((org-before-first-heading-p))
 				  (t
@@ -118,38 +114,61 @@
 				   ;; filter all links from headline, generate link to it and append to linksList
 				   (let ((cleanedHeadline (replace-regexp-in-string "\\[\\[.*\\]\\]" "" currentHeadline)))
 				     
-				     (setq linksList (cons (concat "[[*"  cleanedHeadline "]"
-								   (cond ( (plist-get options :show-only-matches) 
-									   "[" (replace-regexp-in-string (regexp-quote fullFileName) "" cleanedHeadline) "]" ) )
-								   "]")  
-							   linksList) ) )
+				     (setq linksList (cons (concat "[[*"  cleanedHeadline "][" 
+								   (replace-regexp-in-string fullFileName "" cleanedHeadline) "]]") linksList))
+				     )
 				   (goto-char p)
-				   )))))))
-
+				   )
+				  )
+			    )
+			  )
+			)
+		  )
 		(cond ((or (not (plist-get options :show-only-matches)) (not (null linksList)))
 		       ;; construct headline for current file/directory
 		       (let* ((tagString (cond ((not (null curTags)) (concat "  " (replace-regexp-in-string "::" ":" curTags)) ) ))
+			      (headingString 
+			       (concat retString "\n" (make-string level ?*) (if (file-directory-p fullFileName) " [D]" " [ ]") 
+				       (format " [[file:%s][%s]]" (if (plist-get options :relative-links) (file-relative-name fullFileName) fullFileName) fileName)
+				       
+				       )
+			       )
 			      (linkCount 0)
-			      (headingString (format "\n%s [%s] [[file:%s][%s]] %s" 
-						     (make-string level ?*) 
-						     (if (file-directory-p fullFileName) "D" " ") 
-						     (if (plist-get options :relative-links) (file-relative-name fullFileName) fullFileName) fileName
-						     (if tagString tagString ""))))
-
-			 (setq retString (concat retString headingString
-						 (if (not (null linksList)) 
-						     (concat "\n :PROPERTIES:\n " 
-							     (mapconcat (function (lambda (string) (setq linkCount (1+ linkCount)) (concat ":Link" (number-to-string linkCount) ":" string ))) linksList "\n") 
-							     "\n :END:" ) )))
-			 (if (and (null non-recursive) (file-directory-p fullFileName) )
-			     (setq retString (concat retString (org-fstree-generate fullFileName (1+ level) options) ) )
-			   ))))))))
+			      )
+			 (setq retString 
+			       (cond ( links-as-properties
+				       
+				       (concat headingString tagString (if (not (null linksList)) (concat "\n :PROPERTIES:\n " (mapconcat (function (lambda (string) (setq linkCount (1+ linkCount)) (concat ":Link" (number-to-string linkCount) ":" string ))) linksList "\n") "\n :END:" ) )
+					       )
+				       )
+				     (t 
+				      (concat headingString 
+					      (cond ((not (null linksList)) 
+						     (concat "      { " (mapconcat 'identity linksList " | ") " }" ) 
+						     )
+						    )
+					      tagString 
+					      )
+				      )
+				     )
+			       )
+			 )
+		       (if (and (null non-recursive) (file-directory-p fullFileName) )
+			   (setq retString (concat retString (org-fstree-generate fullFileName (1+ level) options) ) )
+			 )
+		       )
+		      )
+		
+		)
+		)	
+	       )
+	 )
        retString)
-    (message "%s is not a directory" dir)))
+    (message "%s is not a directory" dir)
+    )
+  )
 
 (defun org-fstree-apply-maybe ()
-  (interactive)
-  (message "org-fstree-apply-maybe") (sit-for 1) ;; DEBUG
   (save-excursion
      (if (save-excursion (beginning-of-line 1) (looking-at "#\\+END_FSTREE"))
 	 (re-search-backward "#\\+BEGIN_FSTREE" nil t))
@@ -189,79 +208,21 @@
       )
      )
   )
-  
 
-(defun org-fstree-show-entry-maybe ()
-  (interactive)
-  (message "show-entry-maybe..") (sit-for 1) ;; DEBUG
-  (let* ( (parameters (org-fstree-get-parameters-if-inside-fstree-block))
-         (options (plist-get parameters :params)))
-    
-    (cond ((and parameters (message "p") (not (plist-get options :non-recursive)) (message "nr") (plist-get options :dynamic-update) (message "du") )
-	   ;; we are inside the FSTREE block and have to update
-	   ;; delete existing content
-	   (message "show-entry-maybe deleting subtree") (sit-for 1) ;; DEBUG
-	   (save-excursion
-	     (forward-line 1)
-	     (let ((beg (point)))
-	       (org-end-of-subtree)
-	       (delete-region beg (point))
-	       )
-	     )
-	 ;; insert new content
-	 (message "show-entry-maybe generate and insert subtree") (sit-for 1) ;; DEBUG
-	 (save-excursion
-	   (let ((level (1+ (funcall outline-level)))
-                 (dir (org-fstree-extract-path-from-headline)))
-	     (end-of-line 1)
-	     (insert (org-fstree-generate dir level (plist-get parameters :parms))))))))
-  (sit-for 1))
-
-(defun org-fstree-extract-path-from-headline ()
-  (interactive) ;;DEBUG
-  (save-excursion
-    (beginning-of-line 1)
-    (if (looking-at org-fstree-heading-regexp)
-	(match-string-no-properties 1))))
-
-;;(defconst org-fstree-heading-regexp "\\*+ \\[.\\] \\[\\[file:\\(.*\\)\\]\\[.*\\]\\]"
-(defconst org-fstree-heading-regexp ".*\\[\\[file:\\(.*\\)\\]\\[.*\\]\\]"
-
-  "Matches first line of a hidden block.")
-(make-variable-buffer-local 'org-fstree-heading-regexp)
-
-(defun org-fstree-get-parameters-if-inside-fstree-block ()
-  (interactive)
-;;  (message "org-fstree-get-parameters-if-inside-fstree-block") (sit-for 1) ;; DEBUG
-  (and   (save-excursion
-	 (re-search-forward "#\\+END_FSTREE" nil t) )
-	 (save-excursion
-	 (re-search-backward "#\\+BEGIN_FSTREE" nil t) 
-	 (org-fstree-gather-parameters))))
 
 (defun org-fstree-gather-parameters ()
-;;  (message "org-fstree-gather-parameters") (sit-for 1) ;; DEBUG
   (save-excursion 
     (let (rtn)
       (beginning-of-line 1)
       (if (looking-at "#\\+BEGIN_FSTREE[: \t][ \t]*\\([^ \t\r\n]+\\)\\( +.*\\)?")
-     	(let ((dir (org-no-properties (match-string 1)))
+	(let ((dir (org-no-properties (match-string 1)))
 	      (params (if (match-end 2)
 			  (read (concat "(" (match-string 2) ")")))))
+	  ;; no additional parameters yet
 	  (setq rtn (list :dir dir :params params) )
-;; (message (format "Got %s parameters for dir: %s" (number-to-string (length params)) dir)) (sit-for 1) ;; DEBUG	
-  ))
-      
-       rtn)
+	  ))
+      rtn)
     )
 )
 
-(defun org-fstree-get-current-outline-level ()
-  (save-excursion
-    (cond ((org-before-first-heading-p) 1)
-	  (t
-	   (org-back-to-heading)
-	   (+ (funcall outline-level) 1)))))
-
 (add-hook 'org-ctrl-c-ctrl-c-hook 'org-fstree-apply-maybe)
-(add-hook 'org-show-entry-hook 'org-fstree-show-entry-maybe)
