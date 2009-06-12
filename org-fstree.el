@@ -4,7 +4,7 @@
 ;; Copyright 2009 Andreas Burtzlaff
 ;;
 ;; Author: Andreas Burtzlaff < andreas at burtz[REMOVE]laff dot de >
-;; Version: 0.3
+;; Version: 0.4
 ;; Keywords: org-mode filesystem tree
 ;; X-URL: <http://www.burtzlaff.de/org-fstree/org-fstree.el>
 ;;
