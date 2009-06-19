@@ -164,7 +164,7 @@
      (cond
       ((save-excursion (beginning-of-line 1) (looking-at "#\\+BEGIN_FSTREE"))
        (let* ((params (org-fstree-gather-parameters))
-	      (dir (plist-get params :dir))
+	      (dir (org-link-expand-abbrev (plist-get params :dir)))
 	      (options (plist-get params :params))
 	      level)
 	 ;; get current level; there is a BUG if "#+BEGIN_FSTREE" is inserted after the last headlines dots, that indicate its folded state.
@@ -179,18 +179,19 @@
 	   (forward-line)
 	   (let ((beg (point)))
 	     (re-search-forward "#\\+END_FSTREE\\|#\\+BEGIN_FSTREE" nil t)
-	     (let ((generatedString (org-fstree-generate dir level options)))
+	     ;;(let ((generatedString (org-fstree-generate dir level options)))
 	     (cond ( (looking-back "#\\+END_FSTREE") 
 		     (forward-line -1)
 		     (end-of-line 1)
 		     (delete-region beg (point) )
-		     (insert (concat generatedString "\n")))
+		     (insert (concat (org-fstree-generate dir level options) "\n")))
 		   (t (goto-char beg)
-		      (insert (concat generatedString "\n\n#+END_FSTREE"))))
+		      (insert (concat (org-fstree-generate dir level options) "\n\n#+END_FSTREE"))))
 	     ;; hide all subtrees
 	     (org-map-region (function (lambda () (hide-subtree))) beg (point))
 	     
-	     )))
+	     ;;)
+	     ))
        1))))
   
 
