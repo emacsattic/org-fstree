@@ -56,6 +56,7 @@
 ;;     - :show-only-matches t , only files that are being linked to show up
 ;;     - :dynamic-update t , [EXPERIMENTAL] dynamically update a subtree on visibility cycling.
 ;;     - :links-as-properties t, sets the links as properties Link1, Link2,... for use in column view [Does not work with dynamic-update!]
+;;     - :no-annotations t, suppresses the search and display of file annotations
 ;;
 ;; Limitations and warnings:
 ;;
@@ -103,6 +104,8 @@
 	       ((reduce (function (lambda (a b) (or a b)))  (mapcar (function (lambda (regexp) (not (string= fileName (replace-regexp-in-string regexp "" fileName) )) )) exclude-regexp-name-list ) :initial-value nil))
 	       (t
 		(save-excursion 
+                (cond ((plist-get options :no-annotations))
+                      (t
                 ;; Search for links in current buffer
 		(goto-char (point-min))
 		(setq curPos (point))
@@ -127,7 +130,7 @@
 								   "]")  
 							   linksList) ) )
 				   (goto-char p)
-				   )))))))
+				   )))))))))
 
 		(cond ((or (not (plist-get options :show-only-matches)) (not (null linksList)))
 		       ;; construct headline for current file/directory
@@ -184,9 +187,9 @@
 		     (forward-line -1)
 		     (end-of-line 1)
 		     (delete-region beg (point) )
-		     (insert (concat (org-fstree-generate dir level options) "\n")))
+		     (insert (concat (org-fstree-generate dir level options) "\n\n")))
 		   (t (goto-char beg)
-		      (insert (concat (org-fstree-generate dir level options) "\n\n#+END_FSTREE"))))
+		      (insert (concat (org-fstree-generate dir level options) "\n\n\n#+END_FSTREE"))))
 	     ;; hide all subtrees
 	     (org-map-region (function (lambda () (hide-subtree))) beg (point))
 	     
@@ -205,10 +208,13 @@
 	   ;; we are inside the FSTREE block and have to update
 	   ;; delete existing content
 	   (save-excursion
-	     (let ((end (save-excursion 
+	     (let* ((endfstree (save-excursion (re-search-forward "#\\+END_FSTREE" nil t) (beginning-of-line) (point)))
+                    (end (save-excursion 
 			  ;; go to the end of the subtree, specifically to the beginning of the next headline
 			  (org-end-of-subtree nil t)
-			  ;; got back on character, because editing heading lines in column mode is not possible.
+			  ;; check whether the end of the fstree block has been trespassed
+                          (and (> (point) endfstree) (goto-char endfstree))
+                          ;; got back on character, because editing heading lines in column mode is not possible.
 			  ;; this line is supposed to be either empty or an entry.
 			  (forward-char -1)
                           (point)
