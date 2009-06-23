@@ -138,7 +138,7 @@
 			      (linkCount 0)
 			      (headingString (format "\n%s |%s| [[file:%s][%s]] " 
 						     (make-string level ?*) 
-						     (if (file-directory-p fullFileName) "D" " ") 
+						     (cond ((file-directory-p fullFileName) "D") ((file-symlink-p fullFileName) "L") (t " ")) 
 						     (if (plist-get options :relative-links) (file-relative-name fullFileName) fullFileName) fileName)))
 			 (cond (links-as-properties
 				(setq retString (concat retString headingString (if tagString tagString "")
