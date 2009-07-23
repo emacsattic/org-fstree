@@ -54,6 +54,8 @@
 ;;     - :exclude-regexp-fullpath <list of regexp strings>, same as :exclude-regexp-name but matches absolute path to file/directory
 ;;     - :relative-links t , generates relative instead of absolute links
 ;;     - :show-only-matches t , only files that are being linked to show up
+;;     - :only-directories t , only directories are listed
+;;     - :only-regular-files t , only regular files are listed
 ;;     - :dynamic-update t , [EXPERIMENTAL] dynamically update a subtree on visibility cycling.
 ;;     - :links-as-properties t, sets the links as properties Link1, Link2,... for use in column view [Does not work with dynamic-update!]
 ;;     - :no-annotations t, suppresses the search and display of file annotations
@@ -102,6 +104,8 @@
 	       ;; the following two lines are really ugly. I'll be glad if someone with more lisp experience tidies this up.
 	       ((reduce (function (lambda (a b) (or a b)))  (mapcar (function (lambda (regexp) (not (string= fullFileName (replace-regexp-in-string regexp "" fullFileName) )) )) exclude-regexp-fullpath-list ) :initial-value nil))
 	       ((reduce (function (lambda (a b) (or a b)))  (mapcar (function (lambda (regexp) (not (string= fileName (replace-regexp-in-string regexp "" fileName) )) )) exclude-regexp-name-list ) :initial-value nil))
+	       ((and (not (file-directory-p fullFileName)) (plist-get options :only-directories)))
+               ((and (not (file-regular-p fullFileName)) (plist-get options :only-regular-files)))
 	       (t
 		(save-excursion 
                 (cond ((plist-get options :no-annotations))
