@@ -35,7 +35,7 @@ representation of your home directory, which can take some time
 Somewhere in your org file set the properties of some headline as done
 above, add the following line, press C-c C-c while on it and switch to
 column-view (C-c C-x C-c).
-#+BEGIN_FSTREE: ~/ :non-recursive t :links-as-properties
+#+BEGIN_FSTREE: ~/ :non-recursive t :links-as-properties t
 
 To add the complete subtree recursively remove the :non-recursive option. 
 This will quickly become slow; you can stop generation with C-g.
